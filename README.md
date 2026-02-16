@@ -1,3 +1,3 @@
-# `template-action`
+# `action-publish-image`
 
-Template for Python actions
+Build and publish the image
