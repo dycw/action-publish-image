@@ -21,12 +21,6 @@ inputs:
   registry-password:
     description: Password or personal access token for authenticating the Docker registry
     default:
-  uv-index-username:
-    description: Username for authenticating to the UV index
-    default:
-  uv-index-password:
-    description: Password for authenticating to the UV index
-    default:
   registry-port:
     description: Port of the Docker registry
     default:
@@ -35,6 +29,12 @@ inputs:
     default: library
   repository:
     description: Repository of the Docker image
+    default:
+  uv-index-username:
+    description: Username for authenticating to the UV index
+    default:
+  uv-index-password:
+    description: Password for authenticating to the UV index
     default:
 
 runs:
@@ -92,7 +92,7 @@ runs:
           sep=""
         fi
 
-        prefix="${{inputs.registry-host}}${sep}${{inputs.registry-port}}/${{inputs.namespace}}/${{inputs.repository}}/${{steps.meta.outputs.name_external}}"
+        prefix="${{inputs.registry-host}}${sep}${{inputs.registry-port}}/${{inputs.namespace}}/${{inputs.repository}}/${name_external}"
 
         version="$(bump-my-version show current_version)"
 
