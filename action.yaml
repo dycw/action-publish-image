@@ -93,7 +93,6 @@ runs:
         fi
 
         prefix="${{inputs.registry-host}}${sep}${{inputs.registry-port}}/${{inputs.namespace}}/${{inputs.repository}}/${name_external}"
-
         version="$(bump-my-version show current_version)"
 
         echo "tag=${prefix}:${version}" >> "$GITHUB_OUTPUT"
