@@ -1,19 +1,40 @@
-name: abc
-description: description
+name: publish-image
+description: Build and publish the image
 
 branding:
   icon: activity
   color: gray-dark
 
 inputs:
-  token:
-    description: Personal access token (PAT)
+  token-checkout:
+    description: Personal access token (PAT) used to fetch the repository
     default: ${{github.token}}
-  flag:
-    description: Example flag
-    default: false
-  option:
-    description: Example option
+  token-github:
+    description: Personal access token (PAT) used to authenticate with GitHub
+    default: ${{github.token}}
+  registry-host:
+    description: Server address of the Docker registry
+    default: docker.io
+  registry-username:
+    description: Username for authenticating to the Docker registry
+    default:
+  registry-password:
+    description: Password or personal access token for authenticating the Docker registry
+    default:
+  uv-index-username:
+    description: Username for authenticating to the UV index
+    default:
+  uv-index-password:
+    description: Password for authenticating to the UV index
+    default:
+  registry-port:
+    description: Port of the Docker registry
+    default:
+  namespace:
+    description: Namespace of the Docker image
+    default: library
+  repository:
+    description: Repository of the Docker image
     default:
 
 runs:
@@ -30,20 +51,72 @@ runs:
         activate-environment: true
         github-token: ${{inputs.token}}
 
-    - name: Run 'cli abc'
+    - name: Install 'bump-my-version'
+      run: uv tool install --resolution highest --prerelease disallow --managed-python bump-my-version@latest
+      shell: bash
+
+    - name: Install 'yq'
       run: |
         set -euo pipefail
-        args=(uv tool run --from dycw-actions[cli]@latest --isolated --resolution highest --prerelease disallow --managed-python cli abc)
-        flag="${{inputs.flag}}"
-        if [[ "${flag}" =~ ^[Tt][Rr][Uu][Ee]$ ]]; then
-          args+=(--flag)
-        fi
-        option="${{inputs.option}}"
-        if [[ -n "${option}" ]]; then
-          args+=(--option "${option}")
+        args=(uv tool run --from dycw-installer[cli]@latest --isolated --resolution highest --prerelease disallow --managed-python set-up-yq)
+        token_github="${{secrets.ACTION_TOKEN}}"
+        if [[ -n "${token_github}" ]]; then
+          args+=(--token "${token_github}")
         fi
         echo "[$(date +'%Y-%m-%d %H:%M:%S')] Running:"
         printf '%q ' "${args[@]}"
         echo
         "${args[@]}"
       shell: bash
+
+    - name: Login against a Docker registry
+      uses: docker/login-action@v3.7.0
+      with:
+        registry: ${{inputs.registry-host}}
+        username: ${{inputs.username}}
+        password: ${{inputs.password}}
+
+    - name: Compute package metadata
+      id: meta
+      run: |
+        set -euo pipefail
+
+        name_external="$(yq '.project.name' pyproject.toml)"
+        echo "name_external=${name_external}" >> "$GITHUB_OUTPUT"
+        name_internal="$(yq '.tool.uv.build-backend.module-name' pyproject.toml)"
+        echo "name_internal=${name_internal}" >> "$GITHUB_OUTPUT"
+
+        if [[ -n "${{inputs.registry-port}}" ]]; then
+          sep=":"
+        else
+          sep=""
+        fi
+
+        prefix="${{inputs.registry-host}}${sep}${{inputs.registry-port}}/${{inputs.namespace}}/${{inputs.repository}}/${{steps.meta.outputs.name_external}}"
+
+        version="$(bump-my-version show current_version)"
+
+        echo "tag=${prefix}:${version}" >> "$GITHUB_OUTPUT"
+        echo "tag_major=${prefix}:${version%%.*}" >> "$GITHUB_OUTPUT"
+        echo "tag_minor=${prefix}:${version%.*}" >> "$GITHUB_OUTPUT"
+        echo "tag_latest=${prefix}:latest" >> "$GITHUB_OUTPUT"
+      shell: bash
+
+    - name: Build and push Docker images with Buildx
+      uses: docker/build-push-action@v6.19.2
+      with:
+        build-args: |
+          PACKAGE_NAME_EXTERNAL=${{steps.meta.outputs.name_external}}
+          PACKAGE_NAME_INTERNAL=${{steps.meta.outputs.name_internal}}
+        context: .
+        file: docker/Dockerfile
+        push: true
+        no-cache: true
+        secrets: |
+          UV_INDEX_GITEA_USERNAME=${{inputs.uv-index-username}}
+          UV_INDEX_GITEA_PASSWORD=${{inputs.uv-index-password}}
+        tags: |
+          ${{steps.meta.outputs.tag}}
+          ${{steps.meta.outputs.tag_major}}
+          ${{steps.meta.outputs.tag_minor}}
+          ${{steps.meta.outputs.tag_latest}}
