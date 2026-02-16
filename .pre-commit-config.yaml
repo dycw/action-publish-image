@@ -1,14 +1,14 @@
 repos:
   - repo: https://github.com/dycw/pre-commit-hooks
-    rev: 0.14.130
+    rev: 0.14.138
     hooks:
       - id: add-hooks
         args:
           - --ci-github
           - --ci-tag-all
-          - --description=Template for Python actions
+          - --description=Build and publish the image
           - --prettier
-          - --repo-name=template-action
+          - --repo-name=action-publish-image
           - --toml
         priority: 10
       - id: check-versions-consistent
@@ -31,8 +31,8 @@ repos:
         priority: 10
       - id: setup-readme
         args:
-          - --repo-name=template-action
-          - --description=Template for Python actions
+          - --repo-name=action-publish-image
+          - --description=Build and publish the image
         priority: 20
       - id: update-ci-action-versions
         priority: 20
