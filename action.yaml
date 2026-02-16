@@ -1,0 +1,49 @@
+name: abc
+description: description
+
+branding:
+  icon: activity
+  color: gray-dark
+
+inputs:
+  token:
+    description: Personal access token (PAT)
+    default: ${{github.token}}
+  flag:
+    description: Example flag
+    default: false
+  option:
+    description: Example option
+    default:
+
+runs:
+  using: composite
+  steps:
+    - name: Check out repo
+      uses: actions/checkout@v6
+      with:
+        token: ${{inputs.token}}
+
+    - name: Install 'uv'
+      uses: astral-sh/setup-uv@v7
+      with:
+        activate-environment: true
+        github-token: ${{inputs.token}}
+
+    - name: Run 'cli abc'
+      run: |
+        set -euo pipefail
+        args=(uv tool run --from dycw-actions[cli]@latest --isolated --resolution highest --prerelease disallow --managed-python cli abc)
+        flag="${{inputs.flag}}"
+        if [[ "${flag}" =~ ^[Tt][Rr][Uu][Ee]$ ]]; then
+          args+=(--flag)
+        fi
+        option="${{inputs.option}}"
+        if [[ -n "${option}" ]]; then
+          args+=(--option "${option}")
+        fi
+        echo "[$(date +'%Y-%m-%d %H:%M:%S')] Running:"
+        printf '%q ' "${args[@]}"
+        echo
+        "${args[@]}"
+      shell: bash
