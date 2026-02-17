@@ -96,7 +96,7 @@ runs:
         name_internal="$(yq '.tool.uv.build-backend.module-name' pyproject.toml)"
         echo "name_internal=${name_internal}" >> "$GITHUB_OUTPUT"
 
-        prefix="${{steps.registry.output.host_port}}/${{inputs.namespace}}/${name_external}"
+        prefix="${{steps.registry.outputs.host_port}}/${{inputs.namespace}}/${name_external}"
         version="$(bump-my-version show current_version)"
 
         echo "tag=${prefix}:${version}" >> "$GITHUB_OUTPUT"
