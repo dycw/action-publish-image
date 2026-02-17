@@ -69,15 +69,28 @@ runs:
         "${args[@]}"
       shell: bash
 
+    - name: Compute registry metadata
+      id: registry
+      run: |
+        set -euo pipefail
+        port="${{inputs.registry-port}}"
+        if [[ -n "${port}" ]]; then
+          sep=":"
+        else
+          sep=""
+        fi
+        echo "host_port=${{inputs.registry-host}}${sep}${port}" >> "$GITHUB_OUTPUT"
+      shell: bash
+
     - name: Login against a Docker registry
       uses: docker/login-action@v3.7.0
       with:
-        registry: ${{inputs.registry-host}}
+        registry: ${{steps.registry.outputs.host_port}}
         username: ${{inputs.username}}
         password: ${{inputs.password}}
 
     - name: Compute package metadata
-      id: meta
+      id: package
       run: |
         set -euo pipefail
 
@@ -105,8 +118,8 @@ runs:
       uses: docker/build-push-action@v6.19.2
       with:
         build-args: |
-          PACKAGE_NAME_EXTERNAL=${{steps.meta.outputs.name_external}}
-          PACKAGE_NAME_INTERNAL=${{steps.meta.outputs.name_internal}}
+          PACKAGE_NAME_EXTERNAL=${{steps.package.outputs.name_external}}
+          PACKAGE_NAME_INTERNAL=${{steps.package.outputs.name_internal}}
         context: .
         file: docker/Dockerfile
         push: true
@@ -115,7 +128,7 @@ runs:
           UV_INDEX_GITEA_USERNAME=${{inputs.uv-index-username}}
           UV_INDEX_GITEA_PASSWORD=${{inputs.uv-index-password}}
         tags: |
-          ${{steps.meta.outputs.tag}}
-          ${{steps.meta.outputs.tag_major}}
-          ${{steps.meta.outputs.tag_minor}}
-          ${{steps.meta.outputs.tag_latest}}
+          ${{steps.package.outputs.tag}}
+          ${{steps.package.outputs.tag_major}}
+          ${{steps.package.outputs.tag_minor}}
+          ${{steps.package.outputs.tag_latest}}
