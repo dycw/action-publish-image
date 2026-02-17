@@ -27,6 +27,9 @@ inputs:
   namespace:
     description: Namespace of the Docker image
     default: library
+  uv-index:
+    description: The URLs to use when resolving dependencies, in addition to the default index
+    default:
   uv-index-username:
     description: Username for authenticating to the UV index
     default:
@@ -76,7 +79,7 @@ runs:
         else
           sep=""
         fi
-        echo "host_port=${{inputs.registry-host}}${sep}${port}" >> "$GITHUB_OUTPUT"
+        echo "host_port=${{inputs.registry-host}}${sep}${port}" >> "${GITHUB_OUTPUT}"
       shell: bash
 
     - name: Login against a Docker registry
@@ -92,32 +95,33 @@ runs:
         set -euo pipefail
 
         name_external="$(yq '.project.name' pyproject.toml)"
-        echo "name_external=${name_external}" >> "$GITHUB_OUTPUT"
+        echo "name_external=${name_external}" >> "${GITHUB_OUTPUT}"
         name_internal="$(yq '.tool.uv.build-backend.module-name' pyproject.toml)"
-        echo "name_internal=${name_internal}" >> "$GITHUB_OUTPUT"
+        echo "name_internal=${name_internal}" >> "${GITHUB_OUTPUT}"
 
         prefix="${{steps.registry.outputs.host_port}}/${{inputs.namespace}}/${name_external}"
         version="$(bump-my-version show current_version)"
 
-        echo "tag=${prefix}:${version}" >> "$GITHUB_OUTPUT"
-        echo "tag_major=${prefix}:${version%%.*}" >> "$GITHUB_OUTPUT"
-        echo "tag_minor=${prefix}:${version%.*}" >> "$GITHUB_OUTPUT"
-        echo "tag_latest=${prefix}:latest" >> "$GITHUB_OUTPUT"
+        echo "tag=${prefix}:${version}" >> "${GITHUB_OUTPUT}"
+        echo "tag_major=${prefix}:${version%%.*}" >> "${GITHUB_OUTPUT}"
+        echo "tag_minor=${prefix}:${version%.*}" >> "${GITHUB_OUTPUT}"
+        echo "tag_latest=${prefix}:latest" >> "${GITHUB_OUTPUT}"
       shell: bash
 
     - name: Build and push Docker images with Buildx
       uses: docker/build-push-action@v6.19.2
       with:
         build-args: |
-          PACKAGE_NAME_EXTERNAL=${{steps.package.outputs.name_external}}
           PACKAGE_NAME_INTERNAL=${{steps.package.outputs.name_internal}}
+          PACKAGE_NAME_EXTERNAL=${{steps.package.outputs.name_external}}
+          UV_INDEX=${{inputs.uv-index}}
+          UV_INDEX_USERNAME=${{inputs.uv-index-username}}
         context: .
         file: docker/Dockerfile
         push: true
         no-cache: true
         secrets: |
-          UV_INDEX_GITEA_USERNAME=${{inputs.uv-index-username}}
-          UV_INDEX_GITEA_PASSWORD=${{inputs.uv-index-password}}
+          UV_INDEX_PASSWORD=${{inputs.uv-index-password}}
         tags: |
           ${{steps.package.outputs.tag}}
           ${{steps.package.outputs.tag_major}}
