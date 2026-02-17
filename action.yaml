@@ -15,14 +15,14 @@ inputs:
   registry-host:
     description: Server address of the Docker registry
     default: docker.io
+  registry-port:
+    description: Port of the Docker registry
+    default:
   registry-username:
     description: Username for authenticating to the Docker registry
     default:
   registry-password:
     description: Password or personal access token for authenticating the Docker registry
-    default:
-  registry-port:
-    description: Port of the Docker registry
     default:
   namespace:
     description: Namespace of the Docker image
@@ -43,13 +43,13 @@ runs:
     - name: Check out repo
       uses: actions/checkout@v6
       with:
-        token: ${{inputs.token}}
+        token: ${{inputs.token-checkout}}
 
     - name: Install 'uv'
       uses: astral-sh/setup-uv@v7
       with:
         activate-environment: true
-        github-token: ${{inputs.token}}
+        github-token: ${{inputs.token-github}}
 
     - name: Install 'bump-my-version'
       run: uv tool install --resolution highest --prerelease disallow --managed-python bump-my-version@latest
@@ -59,7 +59,7 @@ runs:
       run: |
         set -euo pipefail
         args=(uv tool run --from dycw-installer[cli]@latest --isolated --resolution highest --prerelease disallow --managed-python set-up-yq)
-        token_github="${{secrets.ACTION_TOKEN}}"
+        token_github="${{inputs.token_github}}"
         if [[ -n "${token_github}" ]]; then
           args+=(--token "${token_github}")
         fi
@@ -86,8 +86,8 @@ runs:
       uses: docker/login-action@v3.7.0
       with:
         registry: ${{steps.registry.outputs.host_port}}
-        username: ${{inputs.username}}
-        password: ${{inputs.password}}
+        username: ${{inputs.registry-username}}
+        password: ${{inputs.registry-password}}
 
     - name: Compute package metadata
       id: package
@@ -99,13 +99,7 @@ runs:
         name_internal="$(yq '.tool.uv.build-backend.module-name' pyproject.toml)"
         echo "name_internal=${name_internal}" >> "$GITHUB_OUTPUT"
 
-        if [[ -n "${{inputs.registry-port}}" ]]; then
-          sep=":"
-        else
-          sep=""
-        fi
-
-        prefix="${{inputs.registry-host}}${sep}${{inputs.registry-port}}/${{inputs.namespace}}/${{inputs.repository}}/${name_external}"
+        prefix="${{steps.registry.output.host_port}}/${{inputs.namespace}}/${{inputs.repository}}/${name_external}"
         version="$(bump-my-version show current_version)"
 
         echo "tag=${prefix}:${version}" >> "$GITHUB_OUTPUT"
