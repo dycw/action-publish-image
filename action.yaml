@@ -15,14 +15,14 @@ inputs:
   registry-host:
     description: Server address of the Docker registry
     default: docker.io
+  registry-port:
+    description: Port of the Docker registry
+    default:
   registry-username:
     description: Username for authenticating to the Docker registry
     default:
   registry-password:
     description: Password or personal access token for authenticating the Docker registry
-    default:
-  registry-port:
-    description: Port of the Docker registry
     default:
   namespace:
     description: Namespace of the Docker image
@@ -43,13 +43,13 @@ runs:
     - name: Check out repo
       uses: actions/checkout@v6
       with:
-        token: ${{inputs.token}}
+        token: ${{inputs.token-checkout}}
 
     - name: Install 'uv'
       uses: astral-sh/setup-uv@v7
       with:
         activate-environment: true
-        github-token: ${{inputs.token}}
+        github-token: ${{inputs.token-github}}
 
     - name: Install 'bump-my-version'
       run: uv tool install --resolution highest --prerelease disallow --managed-python bump-my-version@latest
@@ -59,7 +59,7 @@ runs:
       run: |
         set -euo pipefail
         args=(uv tool run --from dycw-installer[cli]@latest --isolated --resolution highest --prerelease disallow --managed-python set-up-yq)
-        token_github="${{secrets.ACTION_TOKEN}}"
+        token_github="${{inputs.token_github}}"
         if [[ -n "${token_github}" ]]; then
           args+=(--token "${token_github}")
         fi
@@ -69,15 +69,28 @@ runs:
         "${args[@]}"
       shell: bash
 
+    - name: Compute registry metadata
+      id: registry
+      run: |
+        set -euo pipefail
+        port="${{inputs.registry-port}}"
+        if [[ -n "${port}" ]]; then
+          sep=":"
+        else
+          sep=""
+        fi
+        echo "host_port=${{inputs.registry-host}}${sep}${port}" >> "$GITHUB_OUTPUT"
+      shell: bash
+
     - name: Login against a Docker registry
       uses: docker/login-action@v3.7.0
       with:
-        registry: ${{inputs.registry-host}}
-        username: ${{inputs.username}}
-        password: ${{inputs.password}}
+        registry: ${{steps.registry.outputs.host_port}}
+        username: ${{inputs.registry-username}}
+        password: ${{inputs.registry-password}}
 
     - name: Compute package metadata
-      id: meta
+      id: package
       run: |
         set -euo pipefail
 
@@ -86,13 +99,7 @@ runs:
         name_internal="$(yq '.tool.uv.build-backend.module-name' pyproject.toml)"
         echo "name_internal=${name_internal}" >> "$GITHUB_OUTPUT"
 
-        if [[ -n "${{inputs.registry-port}}" ]]; then
-          sep=":"
-        else
-          sep=""
-        fi
-
-        prefix="${{inputs.registry-host}}${sep}${{inputs.registry-port}}/${{inputs.namespace}}/${{inputs.repository}}/${name_external}"
+        prefix="${{steps.registry.output.host_port}}/${{inputs.namespace}}/${{inputs.repository}}/${name_external}"
         version="$(bump-my-version show current_version)"
 
         echo "tag=${prefix}:${version}" >> "$GITHUB_OUTPUT"
@@ -105,8 +112,8 @@ runs:
       uses: docker/build-push-action@v6.19.2
       with:
         build-args: |
-          PACKAGE_NAME_EXTERNAL=${{steps.meta.outputs.name_external}}
-          PACKAGE_NAME_INTERNAL=${{steps.meta.outputs.name_internal}}
+          PACKAGE_NAME_EXTERNAL=${{steps.package.outputs.name_external}}
+          PACKAGE_NAME_INTERNAL=${{steps.package.outputs.name_internal}}
         context: .
         file: docker/Dockerfile
         push: true
@@ -115,7 +122,7 @@ runs:
           UV_INDEX_GITEA_USERNAME=${{inputs.uv-index-username}}
           UV_INDEX_GITEA_PASSWORD=${{inputs.uv-index-password}}
         tags: |
-          ${{steps.meta.outputs.tag}}
-          ${{steps.meta.outputs.tag_major}}
-          ${{steps.meta.outputs.tag_minor}}
-          ${{steps.meta.outputs.tag_latest}}
+          ${{steps.package.outputs.tag}}
+          ${{steps.package.outputs.tag_major}}
+          ${{steps.package.outputs.tag_minor}}
+          ${{steps.package.outputs.tag_latest}}
