@@ -59,7 +59,7 @@ runs:
       run: |
         set -euo pipefail
         args=(uv tool run --from dycw-installer[cli]@latest --isolated --resolution highest --prerelease disallow --managed-python set-up-yq)
-        token_github="${{inputs.token_github}}"
+        token_github="${{inputs.token-github}}"
         if [[ -n "${token_github}" ]]; then
           args+=(--token "${token_github}")
         fi
