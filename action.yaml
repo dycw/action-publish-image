@@ -27,8 +27,8 @@ inputs:
   namespace:
     description: Namespace of the Docker image
     default: library
-  uv-index-name:
-    description: Name for the UV index
+  uv-index:
+    description: The URLs to use when resolving dependencies, in addition to the default index
     default:
   uv-index-username:
     description: Username for authenticating to the UV index
@@ -114,8 +114,8 @@ runs:
         build-args: |
           PACKAGE_NAME_INTERNAL=${{steps.package.outputs.name_internal}}
           PACKAGE_NAME_EXTERNAL=${{steps.package.outputs.name_external}}
-          UV_INDEX_NAME=${{inputs.index-name}}
-          UV_INDEX_USERNAME=${{inputs.index-username}}
+          UV_INDEX=${{inputs.uv-index}}
+          UV_INDEX_USERNAME=${{inputs.uv-index-username}}
         context: .
         file: docker/Dockerfile
         push: true
