@@ -27,11 +27,8 @@ inputs:
   namespace:
     description: Namespace of the Docker image
     default: library
-  uv-index-username:
-    description: Username for authenticating to the UV index
-    default:
-  uv-index-password:
-    description: Password for authenticating to the UV index
+  index:
+    description: The URLs to use when resolving dependencies, in addition to the default index
     default:
 
 runs:
@@ -116,8 +113,7 @@ runs:
         push: true
         no-cache: true
         secrets: |
-          UV_INDEX_GITEA_USERNAME=${{inputs.uv-index-username}}
-          UV_INDEX_GITEA_PASSWORD=${{inputs.uv-index-password}}
+          UV_INDEX=${{inputs.index}}
         tags: |
           ${{steps.package.outputs.tag}}
           ${{steps.package.outputs.tag_major}}
